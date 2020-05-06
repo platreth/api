@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="be0e7c3c-d395-44f9-ad0e-a99fbb8c78e7" name="Default Changelist" comment="" />
+    <list default="true" id="be0e7c3c-d395-44f9-ad0e-a99fbb8c78e7" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/src/Controller/UserController.php" beforeDir="false" afterPath="$PROJECT_DIR$/src/Controller/UserController.php" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -12,6 +14,9 @@
     <execution>
       <executable />
     </execution>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="PhpWorkspaceProjectConfiguration">
     <include_path>
@@ -125,6 +130,7 @@
       <workItem from="1587678557276" duration="2068000" />
       <workItem from="1588244462911" duration="2927000" />
       <workItem from="1588770413894" duration="1066000" />
+      <workItem from="1588771600742" duration="126000" />
     </task>
     <servers />
   </component>
