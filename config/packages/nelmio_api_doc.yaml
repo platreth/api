@@ -1,0 +1,18 @@
+nelmio_api_doc:
+    areas: # to filter documented areas
+        path_patterns:
+            - ^/api(?!/doc$) # Accepts routes under /api except /api/doc
+    documentation:
+        info:
+            title: My API
+            description: Amazing right?
+            version: '0.1'
+        securityDefinitions:
+            api_key:
+                type: apiKey
+                description: Your Json Web Token
+                name:  authorization
+                in: header
+        security:
+            -   api_key: []
+
