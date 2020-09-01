@@ -21,6 +21,8 @@ use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
 use Nelmio\ApiDocBundle\Annotation\Model;
 use Nelmio\ApiDocBundle\Annotation\Security;
 use Swagger\Annotations as SWG;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Entity;
+
 
 
 /**
@@ -68,13 +70,13 @@ class UserController extends AbstractController
             'groups' => ['list']
         ]);
 
-        return new Response($data, 200, [
+        return new Response($data, Response::HTTP_OK, [
             'Content-Type' => 'application/json'
         ]);
     }
 
     /**
-     * @Route("/user/{id}", name="show_phone", methods={"GET"})
+     * @Route("/user/{id}", name="show_user", methods={"GET"}, requirements={"id":"\d+"})
      * * @SWG\Response(
      *     response=200,
      *     description="Return a user by id",
@@ -85,6 +87,7 @@ class UserController extends AbstractController
      * )
      * @SWG\Tag(name="user")
      * @Security(name="api_key")
+     * @ParamConverter("user", class="App\Entity\User", options={"mapping": {"id"}})
      * @param User $user
      * @param UserRepository $userRepository
      * @param SerializerInterface $serializer
@@ -147,7 +150,7 @@ class UserController extends AbstractController
         $errors = $validator->validate($user);
         if(count($errors)) {
             $errors = $serializer->serialize($errors, 'json');
-            return new Response($errors, 500, [
+            return new Response($errors, Response::HTTP_INTERNAL_SERVER_ERROR, [
                 'Content-Type' => 'application/json'
             ]);
         }
@@ -155,10 +158,10 @@ class UserController extends AbstractController
         $entityManager->persist($user);
         $entityManager->flush();
         $data = [
-            'status' => 201,
+            'status' => Response::HTTP_CREATED,
             'message' => 'L\'utilisateur  a bien été ajouté'
         ];
-        return new JsonResponse($data, 201);
+        return new JsonResponse($data, Response::HTTP_CREATED);
     }
 
 
@@ -205,13 +208,13 @@ class UserController extends AbstractController
         $errors = $validator->validate($userUpdate);
         if(count($errors)) {
             $errors = $serializer->serialize($errors, 'json');
-            return new Response($errors, 500, [
+            return new Response($errors, Response::HTTP_INTERNAL_SERVER_ERROR, [
                 'Content-Type' => 'application/json'
             ]);
         }
         $entityManager->flush();
         $data = [
-            'status' => 200,
+            'status' => Response::HTTP_OK,
             'message' => 'L\'utilisateur a bien été mis à jour'
         ];
         return new JsonResponse($data);

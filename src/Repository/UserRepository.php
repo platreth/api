@@ -33,7 +33,6 @@ class UserRepository extends ServiceEntityRepository
             ->setParameter(1, $actualUser_id)
             ->getQuery()
             ->setFirstResult(($page - 1) * $limit)
-            ->setFirstResult(($page - 1) * $limit)
             ->setMaxResults($limit);
         return new Paginator($query);
     }
