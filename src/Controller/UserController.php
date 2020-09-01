@@ -5,16 +5,49 @@ namespace App\Controller;
 use App\Entity\Client;
 use App\Entity\User;
 use App\Repository\UserRepository;
+use Doctrine\ORM\EntityManagerInterface;
+use http\Exception\InvalidArgumentException;
+use http\Exception\UnexpectedValueException;
+use Symfony\Component\Config\Definition\Exception\Exception;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
+use Nelmio\ApiDocBundle\Annotation\Model;
+use Nelmio\ApiDocBundle\Annotation\Security;
+use Swagger\Annotations as SWG;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Entity;
 
+
+
+/**
+ * @Route("/api")
+ */
 class UserController extends AbstractController
 {
     /**
-     * @Route("/user", name="user")
+     * @Route("/user", name="user", methods={"GET"})
+     * @SWG\Response(
+     *     response=200,
+     *     description="Returns a list of users by page and by bearer",
+     *        @SWG\Schema(
+     *             type="array",
+     *             @SWG\Items(ref=@Model(type=User::class, groups={"user"}))
+     *        )
+     * )
+     * @SWG\Parameter(
+     *     name="page",
+     *     in="query",
+     *     type="number",
+     *     description="Number of page"
+     * )
+     * @SWG\Tag(name="user")
+     * @Security(name="api_key")
      * @param Request $request
      * @param SerializerInterface $serializer
      * @param UserRepository $userRepository
@@ -22,6 +55,8 @@ class UserController extends AbstractController
      */
     public function index(Request $request, SerializerInterface $serializer, UserRepository $userRepository)
     {
+        $actualUser = $this->getUser();
+        $actualUser_id = $actualUser->getId();
 
         $page = $request->query->get('page');
         if(is_null($page) || $page < 1) {
@@ -29,16 +64,30 @@ class UserController extends AbstractController
         }
         $limit = 10;
 
-        $users = $userRepository->findAllUsers($page, $limit);
+        $users = $userRepository->findAllUsers($page, $limit, $actualUser_id);
 
-        $data = $serializer->serialize($users, 'json');
-        return new Response($data, 200, [
+        $data = $serializer->serialize($users, 'json', [
+            'groups' => ['list']
+        ]);
+
+        return new Response($data, Response::HTTP_OK, [
             'Content-Type' => 'application/json'
         ]);
     }
 
     /**
-     * @Route("/{id}", name="show_phone", methods={"GET"})
+     * @Route("/user/{id}", name="show_user", methods={"GET"}, requirements={"id":"\d+"})
+     * * @SWG\Response(
+     *     response=200,
+     *     description="Return a user by id",
+     *        @SWG\Schema(
+     *             type="array",
+     *             @SWG\Items(ref=@Model(type=User::class, groups={"user"}))
+     *        )
+     * )
+     * @SWG\Tag(name="user")
+     * @Security(name="api_key")
+     * @ParamConverter("user", class="App\Entity\User", options={"mapping": {"id"}})
      * @param User $user
      * @param UserRepository $userRepository
      * @param SerializerInterface $serializer
@@ -46,10 +95,160 @@ class UserController extends AbstractController
      */
     public function show(User $user, UserRepository $userRepository, SerializerInterface $serializer)
     {
+
+        $actualUser = $this->getUser();
+        $actualUser_id = $actualUser->getId();
+
+
         $user = $userRepository->find($user->getId());
-        $data = $serializer->serialize($user, 'json');
-        return new Response($data, 200, [
+        if ($user->getClient()->getId() != $actualUser_id) {
+            return new Response('Unauthorized content', Response::HTTP_UNAUTHORIZED, [
+                'Content-Type' => 'application/json'
+            ]);
+        }
+        $data = $serializer->serialize($user, 'json', [
+            'groups' => ['show']
+        ]);
+        return new Response($data, Response::HTTP_OK, [
             'Content-Type' => 'application/json'
         ]);
+    }
+
+    /**
+     * @Route("/users", name="add_user", methods={"POST"})
+     * @SWG\Response(
+     *     response=200,
+     *     description="Create a new user",
+     *        @SWG\Schema(
+     *             type="array",
+     *             @SWG\Items(ref=@Model(type=User::class, groups={"user"}))
+     *        )
+     * )
+     * @SWG\Parameter(
+     *     name="user",
+     *     in="query",
+     *     type="string",
+     *     description="The field  used to create user"
+     * )
+     * @SWG\Tag(name="user")
+     * @Security(name="api_key")
+     * @param Request $request
+     * @param SerializerInterface $serializer
+     * @param EntityManagerInterface $entityManager
+     * @param ValidatorInterface $validator
+     * @return JsonResponse|Response
+     */
+    public function new(Request $request, SerializerInterface $serializer, EntityManagerInterface $entityManager, ValidatorInterface $validator)
+    {
+
+        $actualUser = $this->getUser();
+        $actualUser_id = $actualUser->getId();
+
+
+        $user = $serializer->deserialize($request->getContent(), User::class, 'json');
+        $user->setClient($actualUser);
+        $errors = $validator->validate($user);
+        if(count($errors)) {
+            $errors = $serializer->serialize($errors, 'json');
+            return new Response($errors, Response::HTTP_INTERNAL_SERVER_ERROR, [
+                'Content-Type' => 'application/json'
+            ]);
+        }
+
+        $entityManager->persist($user);
+        $entityManager->flush();
+        $data = [
+            'status' => Response::HTTP_CREATED,
+            'message' => 'L\'utilisateur  a bien été ajouté'
+        ];
+        return new JsonResponse($data, Response::HTTP_CREATED);
+    }
+
+
+    /**
+     * @Route("/users/{id}", name="update_user", methods={"PUT"})
+     *      * @SWG\Response(
+     *     response=200,
+     *     description="edit a user",
+     *        @SWG\Schema(
+     *             type="array",
+     *             @SWG\Items(ref=@Model(type=User::class, groups={"user"}))
+     *        )
+     * )
+     * @SWG\Parameter(
+     *     name="user",
+     *     in="query",
+     *     type="string",
+     *     description="The field  used to create user"
+     * )
+     * @SWG\Tag(name="user")
+     * @Security(name="Bearer")
+     * @param Request $request
+     * @param SerializerInterface $serializer
+     * @param $id
+     * @param ValidatorInterface $validator
+     * @param EntityManagerInterface $entityManager
+     * @ParamConverter("user", options={"id" = "id"})
+     * @return JsonResponse|Response
+     */
+    public function update(Request $request, SerializerInterface $serializer, $id, ValidatorInterface $validator, EntityManagerInterface $entityManager)
+    {
+        $userUpdate = $entityManager->getRepository(User::class)->find($id);
+        if (is_null($userUpdate)) {
+            throw new NotFoundHttpException("ressource not found");
+        }
+        $data = json_decode($request->getContent());
+        foreach ($data as $key => $value){
+            if($key && !empty($value)) {
+                $name = ucfirst($key);
+                $setter = 'set'.$name;
+                $userUpdate->$setter($value);
+            }
+        }
+        $errors = $validator->validate($userUpdate);
+        if(count($errors)) {
+            $errors = $serializer->serialize($errors, 'json');
+            return new Response($errors, Response::HTTP_INTERNAL_SERVER_ERROR, [
+                'Content-Type' => 'application/json'
+            ]);
+        }
+        $entityManager->flush();
+        $data = [
+            'status' => Response::HTTP_OK,
+            'message' => 'L\'utilisateur a bien été mis à jour'
+        ];
+        return new JsonResponse($data);
+    }
+
+    /**
+     * @Route("/users/{id}", name="delete_user", methods={"DELETE"})
+     *  * @SWG\Response(
+     *     response=204,
+     *     description="Delete a user",
+     *        @SWG\Schema(
+     *             type="array",
+     *             @SWG\Items(ref=@Model(type=User::class, groups={"user"}))
+     *        )
+     * )
+     * @SWG\Parameter(
+     *     name="user id",
+     *     in="query",
+     *     type="string",
+     *     description="The field with the id of the user"
+     * )
+     * @SWG\Tag(name="user")
+     * @Security(name="Bearer")
+     * @param User $user
+     * @param EntityManagerInterface $entityManager
+     * @ParamConverter("user", options={"id" = "id"})
+     * @return Response
+     */
+    public function delete(User $user, EntityManagerInterface $entityManager)
+    {
+        $entityManager->remove($user);
+        $entityManager->flush();
+
+
+        return new Response("", Response::HTTP_NO_CONTENT);
     }
 }
