@@ -31,4 +31,4 @@ php bin/console doctrine:fixtures:load
 127.0.0.1:8000/doc (en fonction de l'adresse d'hébergement de l'API)
 
 *   Se connecter et obtenir un token :
-Requête GET sur http://127.0.0.1:8000/login_check, body {"username": "clientsfr@client.com", "password": "clientsfr"}
+Requête GET sur http://127.0.0.1:8000/login_check, body {"username": "user", "password": "pass"}
