@@ -6,6 +6,7 @@
         "ext-ctype": "*",
         "ext-iconv": "*",
         "fzaninotto/faker": "^1.9",
+        "jms/serializer-bundle": "^3.7",
         "lexik/jwt-authentication-bundle": "^2.8",
         "nelmio/api-doc-bundle": "^3.6",
         "sensio/framework-extra-bundle": "^5.5",
@@ -20,7 +21,8 @@
         "symfony/security-bundle": "5.0.*",
         "symfony/serializer-pack": "^1.0",
         "symfony/validator": "5.0.*",
-        "symfony/yaml": "5.0.*"
+        "symfony/yaml": "5.0.*",
+        "willdurand/hateoas-bundle": "^2.1"
     },
     "require-dev": {
         "doctrine/doctrine-fixtures-bundle": "^3.3"

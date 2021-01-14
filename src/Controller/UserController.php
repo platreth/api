@@ -6,6 +6,7 @@ use App\Entity\Client;
 use App\Entity\User;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Hateoas\Configuration\Annotation as Hateoas;
 use http\Exception\InvalidArgumentException;
 use http\Exception\UnexpectedValueException;
 use Symfony\Component\Config\Definition\Exception\Exception;
@@ -24,8 +25,9 @@ use Swagger\Annotations as SWG;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Entity;
 
 
-
 /**
+ *
+ *
  * @Route("/api")
  */
 class UserController extends AbstractController
@@ -65,10 +67,21 @@ class UserController extends AbstractController
         $limit = 10;
 
         $users = $userRepository->findAllUsers($page, $limit, $actualUser_id);
+        
+        
 
         $data = $serializer->serialize($users, 'json', [
             'groups' => ['list']
         ]);
+
+        $decode = json_decode($data);
+        foreach ($decode as $result) {
+            $result->self = '/api/user';
+            $result->show = '/api/user/' . $result->id;
+        }
+        $data = json_encode($decode);
+
+
 
         return new Response($data, Response::HTTP_OK, [
             'Content-Type' => 'application/json'
@@ -76,7 +89,7 @@ class UserController extends AbstractController
     }
 
     /**
-     * @Route("/user/{id}", name="show_user", methods={"GET"}, requirements={"id":"\d+"})
+     * @Route("/users/{id}", name="show_user", methods={"GET"}, requirements={"id":"\d+"})
      * * @SWG\Response(
      *     response=200,
      *     description="Return a user by id",
@@ -87,7 +100,6 @@ class UserController extends AbstractController
      * )
      * @SWG\Tag(name="user")
      * @Security(name="api_key")
-     * @ParamConverter("user", class="App\Entity\User", options={"mapping": {"id"}})
      * @param User $user
      * @param UserRepository $userRepository
      * @param SerializerInterface $serializer
@@ -109,6 +121,14 @@ class UserController extends AbstractController
         $data = $serializer->serialize($user, 'json', [
             'groups' => ['show']
         ]);
+
+        $decode = json_decode($data);
+        $decode->self = '/api/user/' . $decode->id;
+        $decode->update = '/api/user/' . $decode->id;
+        $decode->delete = '/api/user/' . $decode->id;
+
+        $data = json_encode($decode);
+
         return new Response($data, Response::HTTP_OK, [
             'Content-Type' => 'application/json'
         ]);
@@ -159,8 +179,10 @@ class UserController extends AbstractController
         $entityManager->flush();
         $data = [
             'status' => Response::HTTP_CREATED,
-            'message' => 'L\'utilisateur  a bien été ajouté'
+            'message' => 'L\'utilisateur  a bien été ajouté',
+            'show' => '/api/users/' . $user->getId()
         ];
+
         return new JsonResponse($data, Response::HTTP_CREATED);
     }
 
@@ -215,7 +237,8 @@ class UserController extends AbstractController
         $entityManager->flush();
         $data = [
             'status' => Response::HTTP_OK,
-            'message' => 'L\'utilisateur a bien été mis à jour'
+            'message' => 'L\'utilisateur a bien été mis à jour',
+            'show' => '/api/users/' . $id
         ];
         return new JsonResponse($data);
     }
@@ -240,15 +263,23 @@ class UserController extends AbstractController
      * @Security(name="Bearer")
      * @param User $user
      * @param EntityManagerInterface $entityManager
-     * @ParamConverter("user", options={"id" = "id"})
      * @return Response
      */
-    public function delete(User $user, EntityManagerInterface $entityManager)
+    public function delete($id, User $user, EntityManagerInterface $entityManager, ValidatorInterface $validator, SerializerInterface $serializer)
     {
+        $userDelete = $entityManager->getRepository(User::class)->find($id);
+        $errors = $validator->validate($userDelete);
+
+        if(count($errors)) {
+            $errors = $serializer->serialize($errors, 'json');
+            return new Response($errors, Response::HTTP_INTERNAL_SERVER_ERROR, [
+                'Content-Type' => 'application/json'
+            ]);
+        }
         $entityManager->remove($user);
         $entityManager->flush();
 
 
-        return new Response("", Response::HTTP_NO_CONTENT);
+        return new Response("Utilisateur supprimé", Response::HTTP_NO_CONTENT);
     }
 }
