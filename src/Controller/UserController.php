@@ -207,18 +207,27 @@ class UserController extends AbstractController
      * @Security(name="Bearer")
      * @param Request $request
      * @param SerializerInterface $serializer
-     * @param $id
+     * @param User $user
      * @param ValidatorInterface $validator
      * @param EntityManagerInterface $entityManager
-     * @ParamConverter("user", options={"id" = "id"})
      * @return JsonResponse|Response
      */
-    public function update(Request $request, SerializerInterface $serializer, $id, ValidatorInterface $validator, EntityManagerInterface $entityManager)
+    public function update(Request $request, SerializerInterface $serializer, User $userUpdate, ValidatorInterface $validator, EntityManagerInterface $entityManager, UserRepository $userRepository)
     {
-        $userUpdate = $entityManager->getRepository(User::class)->find($id);
-        if (is_null($userUpdate)) {
-            throw new NotFoundHttpException("ressource not found");
+        $actualUser = $this->getUser();
+        $actualUser_id = $actualUser->getId();
+
+        // $userUpdate = $entityManager->getRepository(User::class)->find($id);
+        // if (is_null($userUpdate)) {
+        //     throw new NotFoundHttpException("ressource not found");
+        // }
+
+        if ($userUpdate->getClient()->getId() != $actualUser_id) {
+            return new JsonResponse('Unauthorized content', Response::HTTP_UNAUTHORIZED, [
+                'Content-Type' => 'application/json'
+            ]);
         }
+
         $data = json_decode($request->getContent());
         foreach ($data as $key => $value){
             if($key && !empty($value)) {
@@ -230,7 +239,7 @@ class UserController extends AbstractController
         $errors = $validator->validate($userUpdate);
         if(count($errors)) {
             $errors = $serializer->serialize($errors, 'json');
-            return new Response($errors, Response::HTTP_INTERNAL_SERVER_ERROR, [
+            return new JsonResponse($errors, Response::HTTP_INTERNAL_SERVER_ERROR, [
                 'Content-Type' => 'application/json'
             ]);
         }
@@ -238,7 +247,7 @@ class UserController extends AbstractController
         $data = [
             'status' => Response::HTTP_OK,
             'message' => 'L\'utilisateur a bien été mis à jour',
-            'show' => '/api/users/' . $id
+            'show' => '/api/users/' . $userUpdate->getId()
         ];
         return new JsonResponse($data);
     }
@@ -265,10 +274,18 @@ class UserController extends AbstractController
      * @param EntityManagerInterface $entityManager
      * @return Response
      */
-    public function delete($id, User $user, EntityManagerInterface $entityManager, ValidatorInterface $validator, SerializerInterface $serializer)
+    public function delete(User $userDelete, EntityManagerInterface $entityManager, ValidatorInterface $validator, SerializerInterface $serializer)
     {
-        $userDelete = $entityManager->getRepository(User::class)->find($id);
+        $actualUser = $this->getUser();
+        $actualUser_id = $actualUser->getId();
         $errors = $validator->validate($userDelete);
+
+        
+        if ($userDelete->getClient()->getId() != $actualUser_id) {
+            return new JsonResponse('Unauthorized content', Response::HTTP_UNAUTHORIZED, [
+                'Content-Type' => 'application/json'
+            ]);
+        }
 
         if(count($errors)) {
             $errors = $serializer->serialize($errors, 'json');
@@ -276,10 +293,10 @@ class UserController extends AbstractController
                 'Content-Type' => 'application/json'
             ]);
         }
-        $entityManager->remove($user);
+        $entityManager->remove($userDelete);
         $entityManager->flush();
 
 
-        return new Response("Utilisateur supprimé", Response::HTTP_NO_CONTENT);
+        return new Response("", Response::HTTP_NO_CONTENT);
     }
 }
