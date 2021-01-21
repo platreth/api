@@ -6,6 +6,7 @@ use App\Entity\Client;
 use App\Entity\User;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Hateoas\Configuration\Annotation as Hateoas;
 use http\Exception\InvalidArgumentException;
 use http\Exception\UnexpectedValueException;
 use Symfony\Component\Config\Definition\Exception\Exception;
@@ -24,8 +25,9 @@ use Swagger\Annotations as SWG;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Entity;
 
 
-
 /**
+ *
+ *
  * @Route("/api")
  */
 class UserController extends AbstractController
@@ -65,18 +67,29 @@ class UserController extends AbstractController
         $limit = 10;
 
         $users = $userRepository->findAllUsers($page, $limit, $actualUser_id);
+        
+        
 
         $data = $serializer->serialize($users, 'json', [
             'groups' => ['list']
         ]);
 
-        return new Response($data, Response::HTTP_OK, [
+        $decode = json_decode($data);
+        foreach ($decode as $result) {
+            $result->self = '/api/user';
+            $result->show = '/api/user/' . $result->id;
+        }
+        $data = json_encode($decode);
+
+
+
+        return new JsonResponse($data, Response::HTTP_OK, [
             'Content-Type' => 'application/json'
         ]);
     }
 
     /**
-     * @Route("/user/{id}", name="show_user", methods={"GET"}, requirements={"id":"\d+"})
+     * @Route("/users/{id}", name="show_user", methods={"GET"}, requirements={"id":"\d+"})
      * * @SWG\Response(
      *     response=200,
      *     description="Return a user by id",
@@ -87,7 +100,6 @@ class UserController extends AbstractController
      * )
      * @SWG\Tag(name="user")
      * @Security(name="api_key")
-     * @ParamConverter("user", class="App\Entity\User", options={"mapping": {"id"}})
      * @param User $user
      * @param UserRepository $userRepository
      * @param SerializerInterface $serializer
@@ -102,14 +114,22 @@ class UserController extends AbstractController
 
         $user = $userRepository->find($user->getId());
         if ($user->getClient()->getId() != $actualUser_id) {
-            return new Response('Unauthorized content', Response::HTTP_UNAUTHORIZED, [
+            return new JsonResponse('Unauthorized content', Response::HTTP_UNAUTHORIZED, [
                 'Content-Type' => 'application/json'
             ]);
         }
         $data = $serializer->serialize($user, 'json', [
             'groups' => ['show']
         ]);
-        return new Response($data, Response::HTTP_OK, [
+
+        $decode = json_decode($data);
+        $decode->self = '/api/user/' . $decode->id;
+        $decode->update = '/api/user/' . $decode->id;
+        $decode->delete = '/api/user/' . $decode->id;
+
+        $data = json_encode($decode);
+
+        return new JsonResponse($data, Response::HTTP_OK, [
             'Content-Type' => 'application/json'
         ]);
     }
@@ -150,7 +170,7 @@ class UserController extends AbstractController
         $errors = $validator->validate($user);
         if(count($errors)) {
             $errors = $serializer->serialize($errors, 'json');
-            return new Response($errors, Response::HTTP_INTERNAL_SERVER_ERROR, [
+            return new JsonResponse($errors, Response::HTTP_INTERNAL_SERVER_ERROR, [
                 'Content-Type' => 'application/json'
             ]);
         }
@@ -159,8 +179,10 @@ class UserController extends AbstractController
         $entityManager->flush();
         $data = [
             'status' => Response::HTTP_CREATED,
-            'message' => 'L\'utilisateur  a bien été ajouté'
+            'message' => 'L\'utilisateur  a bien été ajouté',
+            'show' => '/api/users/' . $user->getId()
         ];
+
         return new JsonResponse($data, Response::HTTP_CREATED);
     }
 
@@ -185,18 +207,27 @@ class UserController extends AbstractController
      * @Security(name="Bearer")
      * @param Request $request
      * @param SerializerInterface $serializer
-     * @param $id
+     * @param User $user
      * @param ValidatorInterface $validator
      * @param EntityManagerInterface $entityManager
-     * @ParamConverter("user", options={"id" = "id"})
      * @return JsonResponse|Response
      */
-    public function update(Request $request, SerializerInterface $serializer, $id, ValidatorInterface $validator, EntityManagerInterface $entityManager)
+    public function update(Request $request, SerializerInterface $serializer, User $userUpdate, ValidatorInterface $validator, EntityManagerInterface $entityManager, UserRepository $userRepository)
     {
-        $userUpdate = $entityManager->getRepository(User::class)->find($id);
-        if (is_null($userUpdate)) {
-            throw new NotFoundHttpException("ressource not found");
+        $actualUser = $this->getUser();
+        $actualUser_id = $actualUser->getId();
+
+        // $userUpdate = $entityManager->getRepository(User::class)->find($id);
+        // if (is_null($userUpdate)) {
+        //     throw new NotFoundHttpException("ressource not found");
+        // }
+
+        if ($userUpdate->getClient()->getId() != $actualUser_id) {
+            return new JsonResponse('Unauthorized content', Response::HTTP_UNAUTHORIZED, [
+                'Content-Type' => 'application/json'
+            ]);
         }
+
         $data = json_decode($request->getContent());
         foreach ($data as $key => $value){
             if($key && !empty($value)) {
@@ -208,14 +239,15 @@ class UserController extends AbstractController
         $errors = $validator->validate($userUpdate);
         if(count($errors)) {
             $errors = $serializer->serialize($errors, 'json');
-            return new Response($errors, Response::HTTP_INTERNAL_SERVER_ERROR, [
+            return new JsonResponse($errors, Response::HTTP_INTERNAL_SERVER_ERROR, [
                 'Content-Type' => 'application/json'
             ]);
         }
         $entityManager->flush();
         $data = [
             'status' => Response::HTTP_OK,
-            'message' => 'L\'utilisateur a bien été mis à jour'
+            'message' => 'L\'utilisateur a bien été mis à jour',
+            'show' => '/api/users/' . $userUpdate->getId()
         ];
         return new JsonResponse($data);
     }
@@ -240,12 +272,28 @@ class UserController extends AbstractController
      * @Security(name="Bearer")
      * @param User $user
      * @param EntityManagerInterface $entityManager
-     * @ParamConverter("user", options={"id" = "id"})
      * @return Response
      */
-    public function delete(User $user, EntityManagerInterface $entityManager)
+    public function delete(User $userDelete, EntityManagerInterface $entityManager, ValidatorInterface $validator, SerializerInterface $serializer)
     {
-        $entityManager->remove($user);
+        $actualUser = $this->getUser();
+        $actualUser_id = $actualUser->getId();
+        $errors = $validator->validate($userDelete);
+
+        
+        if ($userDelete->getClient()->getId() != $actualUser_id) {
+            return new JsonResponse('Unauthorized content', Response::HTTP_UNAUTHORIZED, [
+                'Content-Type' => 'application/json'
+            ]);
+        }
+
+        if(count($errors)) {
+            $errors = $serializer->serialize($errors, 'json');
+            return new Response($errors, Response::HTTP_INTERNAL_SERVER_ERROR, [
+                'Content-Type' => 'application/json'
+            ]);
+        }
+        $entityManager->remove($userDelete);
         $entityManager->flush();
 
 

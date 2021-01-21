@@ -58,6 +58,13 @@ class ProductController extends AbstractController
             'groups' => ['list']
         ]);
 
+        $decode = json_decode($data);
+        foreach ($decode as $result) {
+            $result->self = '/api/product';
+            $result->show = '/api/product/' . $result->id;
+        }
+        $data = json_encode($decode);
+
         return new Response($data, Response::HTTP_OK, [
             'Content-Type' => 'application/json'
         ]);
@@ -87,6 +94,8 @@ class ProductController extends AbstractController
         $data = $serializer->serialize($product, 'json', [
             'groups' => ['show']
         ]);
+        $decode = json_decode($data);
+        $decode->self = '/api/product/' . $decode->id;
         return new Response($data, Response::HTTP_OK, [
             'Content-Type' => 'application/json'
         ]);
