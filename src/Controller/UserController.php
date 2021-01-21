@@ -83,7 +83,7 @@ class UserController extends AbstractController
 
 
 
-        return new Response($data, Response::HTTP_OK, [
+        return new JsonResponse($data, Response::HTTP_OK, [
             'Content-Type' => 'application/json'
         ]);
     }
@@ -114,7 +114,7 @@ class UserController extends AbstractController
 
         $user = $userRepository->find($user->getId());
         if ($user->getClient()->getId() != $actualUser_id) {
-            return new Response('Unauthorized content', Response::HTTP_UNAUTHORIZED, [
+            return new JsonResponse('Unauthorized content', Response::HTTP_UNAUTHORIZED, [
                 'Content-Type' => 'application/json'
             ]);
         }
@@ -129,7 +129,7 @@ class UserController extends AbstractController
 
         $data = json_encode($decode);
 
-        return new Response($data, Response::HTTP_OK, [
+        return new JsonResponse($data, Response::HTTP_OK, [
             'Content-Type' => 'application/json'
         ]);
     }
@@ -170,7 +170,7 @@ class UserController extends AbstractController
         $errors = $validator->validate($user);
         if(count($errors)) {
             $errors = $serializer->serialize($errors, 'json');
-            return new Response($errors, Response::HTTP_INTERNAL_SERVER_ERROR, [
+            return new JsonResponse($errors, Response::HTTP_INTERNAL_SERVER_ERROR, [
                 'Content-Type' => 'application/json'
             ]);
         }
