@@ -27,8 +27,14 @@ php bin/console doctrine:schema:create
 php bin/console doctrine:fixtures:load
 ```
 
+* update base de données :
+```system
+php bin/console doctrine:server:update
+```
+
 *   Accédez à l'aide de l'API :
-127.0.0.1:8000/doc (en fonction de l'adresse d'hébergement de l'API)
+127.0.0.1:8000/api/doc (en fonction de l'adresse d'hébergement de l'API)
 
 *   Collection postman :
 https://www.getpostman.com/collections/e004297d449a8c5cd41b
+
