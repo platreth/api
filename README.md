@@ -30,5 +30,5 @@ php bin/console doctrine:fixtures:load
 *   Accédez à l'aide de l'API :
 127.0.0.1:8000/doc (en fonction de l'adresse d'hébergement de l'API)
 
-*   Se connecter et obtenir un token :
-Requête GET sur http://127.0.0.1:8000/login_check, body {"username": "user", "password": "pass"}
+*   Collection postman :
+https://www.getpostman.com/collections/e004297d449a8c5cd41b
